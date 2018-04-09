@@ -1,0 +1,116 @@
+
+
+#include <stdint.h>
+#include <stdbool.h>
+#include "main.h"
+#include "drivers/pinout.h"
+#include "utils/uartstdio.h"
+
+
+// TivaWare includes
+#include "driverlib/sysctl.h"
+#include "driverlib/debug.h"
+#include "driverlib/rom.h"
+#include "driverlib/rom_map.h"
+
+// FreeRTOS includes
+#include "FreeRTOSConfig.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "timers.h"
+
+
+// Declarations
+void LEDTask1(void *pvParameters);
+void LEDTask2(void *pvParameters);
+
+int flag1,flag2;
+TimerHandle_t xTimer1,xTimer2;
+
+void vTimerCallback1( TimerHandle_t xTimer1 )
+{
+    if (flag1 == 0)
+    {
+        LEDWrite(0x01, 0x01);
+        flag1 = 1;
+    }
+    else if(flag1 == 1)
+    {
+        LEDWrite(0x01, 0x00);
+        flag1 = 0;
+    }
+}
+
+void vTimerCallback2( TimerHandle_t xTimer2 )
+{
+    if (flag2 == 0)
+    {
+        LEDWrite(0x02, 0x02);
+        flag2 = 1;
+    }
+    else if(flag2 == 1)
+    {
+        LEDWrite(0x02, 0x00);
+        flag2 = 0;
+    }
+}
+// Main function
+int main(void)
+{
+    // Initialize system clock to 120 MHz
+    uint32_t output_clock_rate_hz;
+    output_clock_rate_hz = ROM_SysCtlClockFreqSet(
+                               (SYSCTL_XTAL_25MHZ | SYSCTL_OSC_MAIN |
+                                SYSCTL_USE_PLL | SYSCTL_CFG_VCO_480),
+                               SYSTEM_CLOCK);
+    ASSERT(output_clock_rate_hz == SYSTEM_CLOCK);
+
+    // Initialize the GPIO pins for the Launchpad
+    PinoutSet(false, false);
+
+    // Create demo tasks
+     xTaskCreate(LEDTask1, (const portCHAR *)"LED1",
+                configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+
+     xTaskCreate(LEDTask2, (const portCHAR *)"LED2",
+                configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+
+    vTaskStartScheduler();
+    return 0;
+}
+
+
+// Flash the LEDs on the launchpad
+void LEDTask1(void *pvParameters)
+{
+
+        // Turn on LED 1
+        xTimer1 = xTimerCreate("timer1",pdMS_TO_TICKS( 500 ),pdTRUE,( void * ) 0,vTimerCallback1);
+        xTimerStart( xTimer1, 0 );
+        for(;;) ;
+
+}
+
+
+void LEDTask2(void *pvParameters)
+{
+
+        // Turn on LED 2
+        xTimer2 = xTimerCreate("timer2",pdMS_TO_TICKS( 250 ),pdTRUE,( void * ) 0,vTimerCallback2);
+        xTimerStart( xTimer2, 0 );
+        for(;;) ;
+
+}
+
+/*  ASSERT() Error function
+ *
+ *  failed ASSERTS() from driverlib/debug.h are executed in this function
+ */
+void __error__(char *pcFilename, uint32_t ui32Line)
+{
+    // Place a breakpoint here to capture errors until logging routine is finished
+    while (1)
+    {
+    }
+}
